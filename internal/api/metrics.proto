@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+service MetricsService {
+    rpc SendMetrics (MetricsRequest) returns (MetricsResponse);
+    rpc StreamMetrics (StreamRequest) returns (stream MetricsResponse);
+}
+
+message MetricsRequest {
+    string server_id = 1;
+    double cpu_usage = 2;
+    double memory_usage = 3;
+    double network_usage = 4;
+    double disk_usage = 5;
+}
+
+message MetricsResponse {
+    string status = 1;
+}
+
+message StreamRequest {
+    string server_id = 1;
+}
