@@ -28,7 +28,14 @@ func (s *MetricsServer) SendMetrics(ctx context.Context, req *api.MetricsRequest
 	defer s.mu.Unlock()
 
 	s.metrics[req.ServerId] = req
-	log.Printf("Received metrics from %s: CPU: %.2f%%, RAM: %.2f%%", req.ServerId, req.CpuUsage, req.MemoryUsage)
+	log.Printf(
+		"Received metrics from %s: CPU: %.2f%%, RAM: %.2f%%, Disk: %.2f%%, Net: %.0f bytes",
+		req.ServerId,
+		req.CpuUsage,
+		req.MemoryUsage,
+		req.DiskUsage,
+		req.NetworkUsage,
+	)
 
 	return &api.MetricsResponse{Status: "OK"}, nil
 }
