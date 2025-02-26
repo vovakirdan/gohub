@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  # ---- PostgreSQL ----
+  db:
+    image: postgres:15
+    container_name: gohub_postgres
+    environment:
+      POSTGRES_USER: gohub
+      POSTGRES_PASSWORD: gohub
+      POSTGRES_DB: gohub
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # ---- gRPC Go Server ----
+  server:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: gohub_server
+    depends_on:
+      - db
+    environment:
+      # DSN для подключения к контейнеру db (hostname = "db")
+      DATABASE_URL: postgres://gohub:gohub@db:5432/gohub?sslmode=disable
+    ports:
+      - "50051:50051"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
