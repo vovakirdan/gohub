@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"os"
 	"time"
 
 	"gohub/internal/api"
@@ -76,13 +77,19 @@ func sendSystemMetrics(client api.MetricsServiceClient) {
 		return
 	}
 
+	hostname, err := os.Hostname()
+	if err != nil {
+		log.Printf("Could not get hostname: %v", err)
+		return
+	}
+
 	// Для примера извлечём одно суммарное значение
 	bytesSent := netCounters[0].BytesSent
 	bytesRecv := netCounters[0].BytesRecv
 
 	// Формируем запрос gRPC
 	req := &api.MetricsRequest{
-		ServerId:     "my-real-host",                 // Можно получить системное имя хоста через os.Hostname()
+		ServerId:     hostname,
 		CpuUsage:     cpuPercent[0],                  // Процент использования CPU
 		MemoryUsage:  memStat.UsedPercent,            // Процент использования ОЗУ
 		DiskUsage:    diskStat.UsedPercent,           // Процент заполнения диска
