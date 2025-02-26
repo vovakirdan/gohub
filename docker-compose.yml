@@ -13,6 +13,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./deploy/postgres/initdb:/docker-entrypoint-initdb.d
     restart: unless-stopped
 
   # ---- gRPC Go Server ----
@@ -28,6 +29,7 @@ services:
       DATABASE_URL: postgres://gohub:gohub@db:5432/gohub?sslmode=disable
     ports:
       - "50051:50051"
+      - "8080:8080"    # HTTP/WebSocket
     restart: unless-stopped
 
 volumes:

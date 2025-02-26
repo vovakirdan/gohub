@@ -2,19 +2,27 @@ syntax = "proto3";
 
 package api;
 
-option go_package = "gohub/api";
+option go_package = "/internal/api";
 
+// Сервис с отправкой/получением метрик
 service MetricsService {
+  // 1) Отправка метрик
   rpc SendMetrics (MetricsRequest) returns (MetricsResponse);
+
+  // 2) Потоковый пример (заглушка)
   rpc StreamMetrics (StreamRequest) returns (stream MetricsResponse);
+
+  // 3) Получение метрик (новый метод)
+  rpc ListMetrics (ListMetricsRequest) returns (ListMetricsResponse);
 }
 
 message MetricsRequest {
   string server_id = 1;
-  double cpu_usage = 2;
-  double memory_usage = 3;
-  double disk_usage = 4;
-  double network_usage = 5;
+  string tag = 2;
+  double cpu_usage = 3;
+  double memory_usage = 4;
+  double disk_usage = 5;
+  double network_usage = 6;
 }
 
 message MetricsResponse {
@@ -23,4 +31,28 @@ message MetricsResponse {
 
 message StreamRequest {
   string server_id = 1;
+}
+
+// Для фильтрации/пагинации (упрощённый пример)
+message ListMetricsRequest {
+  string server_id = 1;    // необязательно
+  string tag = 2;          // необязательно
+  int64 limit = 3;         // взять N последних метрик
+}
+
+// Возвращаем список метрик
+message ListMetricsResponse {
+  repeated Metric metrics = 1;
+}
+
+// Каждая метрика
+message Metric {
+  int64 id = 1;
+  string server_id = 2;
+  string tag = 3;
+  double cpu_usage = 4;
+  double memory_usage = 5;
+  double disk_usage = 6;
+  double network_usage = 7;
+  string created_at = 8; // строка с датой (упрощённо)
 }

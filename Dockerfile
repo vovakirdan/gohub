@@ -22,5 +22,8 @@ COPY --from=builder /bin/server /app/server
 # Открываем порт 50051
 EXPOSE 50051
 
+# Открываем порт 8080
+EXPOSE 8080
+
 # Запуск
 CMD ["/app/server"]

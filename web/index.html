@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>gRPC Metrics Monitor</title>
+</head>
+<body>
+  <h1>Metrics Monitor (WebSocket)</h1>
+  <p>Open console to see logs or watch below:</p>
+  <div id="logs"></div>
+
+  <script>
+    const logs = document.getElementById('logs');
+    const wsProtocol = (location.protocol === 'https:') ? 'wss' : 'ws';
+    const socket = new WebSocket(wsProtocol + '://' + window.location.host + '/ws');
+
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      const msg = document.createElement('p');
+      msg.textContent = `[WS] Host=${data.server_id}, Tag=${data.tag}, CPU=${data.cpu_usage.toFixed(2)}%`;
+      logs.prepend(msg);
+    };
+
+    socket.onopen = () => {
+      console.log("WebSocket connected");
+    };
+
+    socket.onerror = (err) => {
+      console.error("WebSocket error:", err);
+    };
+
+    socket.onclose = () => {
+      console.log("WebSocket closed");
+    };
+  </script>
+</body>
+</html>

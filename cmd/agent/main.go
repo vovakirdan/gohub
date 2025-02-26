@@ -20,6 +20,13 @@ import (
 const SEND_INTERVAL = 5 * time.Second
 
 func main() {
+	// Считываем AGENT_TAG из окружения (или даём значение по умолчанию)
+	tag := os.Getenv("AGENT_TAG")
+	if tag == "" {
+		tag = "default-tag"
+	}
+
+	// Подключаемся к gRPC-серверу
 	conn, err := grpc.NewClient(
 		"localhost:50051",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -34,16 +41,16 @@ func main() {
 	ticker := time.NewTicker(SEND_INTERVAL)
 	defer ticker.Stop()
 
-	log.Println("Agent started, sending metrics to gRPC server...")
+	log.Printf("Agent started with tag=%s, sending metrics to gRPC server...", tag)
 
 	for {
 		<-ticker.C
-		sendSystemMetrics(client)
+		sendSystemMetrics(client, tag)
 	}
 }
 
 // sendSystemMetrics собирает метрики и отправляет на сервер
-func sendSystemMetrics(client api.MetricsServiceClient) {
+func sendSystemMetrics(client api.MetricsServiceClient, tag string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -79,8 +86,7 @@ func sendSystemMetrics(client api.MetricsServiceClient) {
 
 	hostname, err := os.Hostname()
 	if err != nil {
-		log.Printf("Could not get hostname: %v", err)
-		return
+		hostname = "unknown-host"
 	}
 
 	// Для примера извлечём одно суммарное значение
@@ -90,10 +96,11 @@ func sendSystemMetrics(client api.MetricsServiceClient) {
 	// Формируем запрос gRPC
 	req := &api.MetricsRequest{
 		ServerId:     hostname,
-		CpuUsage:     cpuPercent[0],                  // Процент использования CPU
-		MemoryUsage:  memStat.UsedPercent,            // Процент использования ОЗУ
-		DiskUsage:    diskStat.UsedPercent,           // Процент заполнения диска
-		NetworkUsage: float64(bytesSent + bytesRecv), // Условная метрика сети
+		Tag:          tag,
+		CpuUsage:     cpuPercent[0],
+		MemoryUsage:  memStat.UsedPercent,
+		DiskUsage:    diskStat.UsedPercent,
+		NetworkUsage: float64(bytesSent + bytesRecv),
 	}
 
 	// Отправляем данные на gRPC-сервер
@@ -103,8 +110,7 @@ func sendSystemMetrics(client api.MetricsServiceClient) {
 		return
 	}
 
-	// Логируем ответ сервера
-	log.Printf("SendMetrics response: %s, CPU=%.2f%%, MEM=%.2f%%, Disk=%.2f%%, Net=%.0f bytes",
-		resp.Status, req.CpuUsage, req.MemoryUsage, req.DiskUsage, req.NetworkUsage,
+	log.Printf("SendMetrics response: %s, tag=%s, CPU=%.2f%%, MEM=%.2f%%, Disk=%.2f%%, Network=%.2f bytes",
+		resp.Status, tag, req.CpuUsage, req.MemoryUsage, req.DiskUsage, req.NetworkUsage,
 	)
 }
