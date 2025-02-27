@@ -1,22 +1,13 @@
 import { JSX, useEffect, useState } from 'react';
 import MachineMonitor from './MachineMonitor';
+import { MetricMessage } from './types';
 
-// Тип для входящего сообщения с метриками
-export type MetricMessage = {
-  message: string;
-  server_id: string;
-  tag: string;
-  cpu_usage: number;
-  memory_usage: number;
-  disk_usage: number;
-  network_usage: number;
-  // Добавляем временную метку для построения графиков
-  timestamp: number;
-};
 
 function App(): JSX.Element {
   // Состояние: словарь, где ключ – ID сервера, а значение – массив сообщений (временной ряд)
   const [machines, setMachines] = useState<Record<string, MetricMessage[]>>({});
+  // Состояние для переключения между grid и list режимами
+  const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>('grid');
 
   useEffect(() => {
     // Определяем URL для WebSocket (приоритет переменной окружения)
@@ -29,13 +20,13 @@ function App(): JSX.Element {
       const metricData: MetricMessage = { ...data, timestamp: Date.now() };
       console.log("WS received:", metricData);
 
-      // Обновляем данные для соответствующего сервера
+      // Формируем ключ как комбинацию server_id и tag
+      const machineKey = `${metricData.server_id}||${metricData.tag}`;
       setMachines((prevMachines) => {
-        // Берем предыдущий ряд для сервера или создаем новый
-        const prevData = prevMachines[metricData.server_id] || [];
-        // Ограничиваем длину временного ряда, например, до 100 значений
+        const prevData = prevMachines[machineKey] || [];
+        // Ограничиваем длину временного ряда до 100 значений
         const newData = [metricData, ...prevData].slice(0, 100);
-        return { ...prevMachines, [metricData.server_id]: newData };
+        return { ...prevMachines, [machineKey]: newData };
       });
     };
 
@@ -56,14 +47,32 @@ function App(): JSX.Element {
     };
   }, []);
 
+  const toggleLayout = () => {
+    setLayoutMode((prev) => (prev === 'grid' ? 'list' : 'grid'));
+  };
+
   return (
     <div style={{ padding: '20px' }}>
       <h1>gRPC Metrics Monitor (React + TS)</h1>
-      {/* Grid-расположение для компонентов мониторинга */}
-      <div className="machine-grid">
-        {Object.entries(machines).map(([serverId, messages]) => (
-          <MachineMonitor key={serverId} serverId={serverId} messages={messages} />
-        ))}
+      <p>Количество групп: {Object.keys(machines).length}</p>
+      {/* Кнопка для переключения отображения */}
+      <button onClick={toggleLayout} style={{ marginBottom: '20px' }}>
+        Переключить на {layoutMode === 'grid' ? 'список' : 'сетка'}
+      </button>
+      {/* Контейнер с динамическим классом в зависимости от режима отображения */}
+      <div className={layoutMode === 'grid' ? 'machine-grid' : 'machine-list'}>
+        {Object.entries(machines).map(([machineKey, messages]) => {
+          // Извлекаем server_id и tag из ключа
+          const [serverId, tag] = machineKey.split('||');
+          return (
+            <MachineMonitor
+              key={machineKey}
+              serverId={serverId}
+              tag={tag}
+              messages={messages}
+            />
+          );
+        })}
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import { JSX, useState } from 'react';
 import { Line } from 'react-chartjs-2';
-import { MetricMessage } from './App';
+import { MetricMessage } from './types';
 
 // Импортируем необходимые модули Chart.js
 import {
@@ -19,10 +19,11 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 
 type MachineMonitorProps = {
   serverId: string;
+  tag: string;
   messages: MetricMessage[];
 };
 
-const MachineMonitor = ({ serverId, messages }: MachineMonitorProps): JSX.Element => {
+const MachineMonitor = ({ serverId, tag, messages }: MachineMonitorProps): JSX.Element => {
   // Состояния для показа/скрытия отдельных графиков
   const [showCpu, setShowCpu] = useState<boolean>(true);
   const [showMemory, setShowMemory] = useState<boolean>(true);
@@ -87,16 +88,16 @@ const MachineMonitor = ({ serverId, messages }: MachineMonitorProps): JSX.Elemen
   const options = {
     responsive: true,
     scales: {
-      y: {
-        beginAtZero: true,
-      },
+    //   y: {
+    //     beginAtZero: true,
+    //   },
     },
   };
 
   return (
     <div className="machine-monitor" style={{ border: '1px solid #ccc', margin: '10px', padding: '10px' }}>
-      <h2>Server: {serverId}</h2>
-      {/* Панель для переключения графиков */}
+      <h2>Server: {serverId} <small style={{ fontWeight: 'normal' }}>[Tag: {tag}]</small></h2>
+      {/* Панель для переключения отдельных графиков */}
       <div style={{ marginBottom: '10px' }}>
         <label style={{ marginRight: '10px' }}>
           <input type="checkbox" checked={showCpu} onChange={() => setShowCpu(!showCpu)} /> CPU
