@@ -32,5 +32,20 @@ services:
       - "8080:8080"    # HTTP/WebSocket
     restart: unless-stopped
 
+  # ---- React ----
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: gohub_web
+    depends_on:
+      - server
+    environment:
+      # REACT_APP_WS_URL укажем на "server:8080/ws" - сетевое имя gRPC-сервера
+      REACT_APP_WS_URL: ws://server:8080/ws
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+
 volumes:
   postgres_data:
