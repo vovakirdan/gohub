@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"time"
+	"strconv"
 
 	"gohub/internal/api"
 
@@ -17,7 +18,22 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-const SEND_INTERVAL = 5 * time.Second
+const DEFAULT_SEND_INTERVAL = 5 * time.Second
+
+var SEND_INTERVAL time.Duration
+
+func init() {
+    intervalStr := os.Getenv("SEND_INTERVAL")
+    if intervalStr != "" {
+        if interval, err := strconv.Atoi(intervalStr); err == nil {
+            SEND_INTERVAL = time.Duration(interval) * time.Millisecond
+        } else {
+            SEND_INTERVAL = DEFAULT_SEND_INTERVAL
+        }
+    } else {
+        SEND_INTERVAL = DEFAULT_SEND_INTERVAL
+    }
+}
 
 func main() {
 	// Считываем AGENT_TAG из окружения (или даём значение по умолчанию)
