@@ -1,6 +1,8 @@
 import { JSX, useEffect, useState } from 'react';
+import MachineMonitor from './MachineMonitor';
 
-type MetricMessage = {
+// Тип для входящего сообщения с метриками
+export type MetricMessage = {
   message: string;
   server_id: string;
   tag: string;
@@ -8,24 +10,33 @@ type MetricMessage = {
   memory_usage: number;
   disk_usage: number;
   network_usage: number;
+  // Добавляем временную метку для построения графиков
+  timestamp: number;
 };
 
 function App(): JSX.Element {
-  const [messages, setMessages] = useState<MetricMessage[]>([]);
+  // Состояние: словарь, где ключ – ID сервера, а значение – массив сообщений (временной ряд)
+  const [machines, setMachines] = useState<Record<string, MetricMessage[]>>({});
 
   useEffect(() => {
-    // 1) Определяем адрес вебсокета
-    // Во время Docker-запуска: ws://server:8080/ws
-    // Локально без Docker:     ws://localhost:8080/ws
-    const wsUrl = process.env.REACT_APP_WS_URL || 'ws://server:8080/ws';    
+    // Определяем URL для WebSocket (приоритет переменной окружения)
+    const wsUrl = process.env.REACT_APP_WS_URL || 'ws://server:8080/ws';
     const socket = new WebSocket(wsUrl);
 
     socket.onmessage = (event) => {
-      const data = JSON.parse(event.data) as MetricMessage;
-      console.log("WS received:", data);
+      // Разбираем полученное сообщение и добавляем временную метку
+      const data = JSON.parse(event.data) as Omit<MetricMessage, 'timestamp'>;
+      const metricData: MetricMessage = { ...data, timestamp: Date.now() };
+      console.log("WS received:", metricData);
 
-      // 2) Сохраняем новую метрику в массив
-      setMessages((prev) => [data, ...prev]);
+      // Обновляем данные для соответствующего сервера
+      setMachines((prevMachines) => {
+        // Берем предыдущий ряд для сервера или создаем новый
+        const prevData = prevMachines[metricData.server_id] || [];
+        // Ограничиваем длину временного ряда, например, до 100 значений
+        const newData = [metricData, ...prevData].slice(0, 100);
+        return { ...prevMachines, [metricData.server_id]: newData };
+      });
     };
 
     socket.onopen = () => {
@@ -46,19 +57,14 @@ function App(): JSX.Element {
   }, []);
 
   return (
-    <div style={{ margin: '20px' }}>
+    <div style={{ padding: '20px' }}>
       <h1>gRPC Metrics Monitor (React + TS)</h1>
-      <p>Messages received: {messages.length}</p>
-      {messages.map((m, index) => (
-        <div key={index} style={{ border: '1px solid #ccc', marginBottom: '8px', padding: '8px' }}>
-          <p><strong>Host:</strong> {m.server_id}</p>
-          <p><strong>Tag:</strong> {m.tag}</p>
-          <p><strong>CPU:</strong> {m.cpu_usage.toFixed(2)}%</p>
-          <p><strong>MEM:</strong> {m.memory_usage.toFixed(2)}%</p>
-          <p><strong>DISK:</strong> {m.disk_usage.toFixed(2)}%</p>
-          <p><strong>NETWORK:</strong> {m.network_usage.toFixed(0)} bytes</p>
-        </div>
-      ))}
+      {/* Grid-расположение для компонентов мониторинга */}
+      <div className="machine-grid">
+        {Object.entries(machines).map(([serverId, messages]) => (
+          <MachineMonitor key={serverId} serverId={serverId} messages={messages} />
+        ))}
+      </div>
     </div>
   );
 }

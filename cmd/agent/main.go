@@ -33,6 +33,7 @@ func init() {
     } else {
         SEND_INTERVAL = DEFAULT_SEND_INTERVAL
     }
+	log.Printf("Starting agent with interval: %s", SEND_INTERVAL)
 }
 
 func main() {
