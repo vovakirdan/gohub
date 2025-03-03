@@ -2,7 +2,7 @@ import { JSX, useState } from 'react';
 import { Line } from 'react-chartjs-2';
 import { MetricMessage } from './types';
 
-// Импорт модулей Chart.js
+// Подключаем необходимые компоненты Chart.js
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -14,7 +14,7 @@ import {
   Legend,
 } from 'chart.js';
 
-// Регистрация компонентов Chart.js
+// Регистрируем их в Chart.js
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 type MachineMonitorProps = {
@@ -23,73 +23,78 @@ type MachineMonitorProps = {
   messages: MetricMessage[];
 };
 
-const MachineMonitor = ({ serverId, tag, messages }: MachineMonitorProps): JSX.Element => {
-  // Состояния для управления отображением отдельных графиков
+export default function MachineMonitor(props: MachineMonitorProps): JSX.Element {
+  const { serverId, tag, messages } = props;
+
+  // Состояния для показа/скрытия отдельных графиков
   const [showCpu, setShowCpu] = useState<boolean>(true);
   const [showMemory, setShowMemory] = useState<boolean>(true);
   const [showDisk, setShowDisk] = useState<boolean>(true);
   const [showNetwork, setShowNetwork] = useState<boolean>(true);
 
-  // Сортируем сообщения по времени (старые – слева, новые – справа)
-  const sortedMessages = [...messages].reverse();
-  const labels = sortedMessages.map(msg => new Date(msg.timestamp).toLocaleTimeString());
+  // Сортируем так, чтобы самые старые были слева (по возрастанию времени)
+  const sortedMessages = [...messages].sort((a, b) => a.timestamp - b.timestamp);
 
-  // График для CPU: процент, с заполнением области и плавной кривой
+  // Формируем массив меток (для оси X)
+  const labels: Array<string> = sortedMessages.map((msg) =>
+    new Date(msg.timestamp).toLocaleTimeString()
+  );
+
+  // CPU и Memory рисуем "сглаженные" линии с заливкой
   const cpuData = {
     labels,
     datasets: [
       {
         label: 'CPU Usage (%)',
-        data: sortedMessages.map(msg => msg.cpu_usage),
+        data: sortedMessages.map((msg) => msg.cpu_usage),
         fill: true,
         tension: 0.4,
-        borderColor: 'rgba(75,192,192,1)',
-        backgroundColor: 'rgba(75,192,192,0.2)',
+        borderColor: 'rgba(75, 192, 192, 1)',
+        backgroundColor: 'rgba(75, 192, 192, 0.2)',
       },
     ],
   };
-
-  // График для памяти: процент, с заполнением области и плавной кривой
   const memoryData = {
     labels,
     datasets: [
       {
         label: 'Memory Usage (%)',
-        data: sortedMessages.map(msg => msg.memory_usage),
+        data: sortedMessages.map((msg) => msg.memory_usage),
         fill: true,
         tension: 0.4,
-        borderColor: 'rgba(192,75,192,1)',
-        backgroundColor: 'rgba(192,75,192,0.2)',
+        borderColor: 'rgba(192, 75, 192, 1)',
+        backgroundColor: 'rgba(192, 75, 192, 0.2)',
       },
     ],
   };
 
-  // График для диска
+  // Disk и Network – без заливки и без сглаживания (при желании можно тоже включить)
   const diskData = {
     labels,
     datasets: [
       {
         label: 'Disk Usage (%)',
-        data: sortedMessages.map(msg => msg.disk_usage),
+        data: sortedMessages.map((msg) => msg.disk_usage),
         fill: false,
-        borderColor: 'rgba(192,192,75,1)',
+        tension: 0, // нет сглаживания
+        borderColor: 'rgba(192, 192, 75, 1)',
       },
     ],
   };
-
-  // График для сети
   const networkData = {
     labels,
     datasets: [
       {
         label: 'Network Usage (bytes)',
-        data: sortedMessages.map(msg => msg.network_usage),
+        data: sortedMessages.map((msg) => msg.network_usage),
         fill: false,
-        borderColor: 'rgba(75,75,192,1)',
+        tension: 0,
+        borderColor: 'rgba(75, 75, 192, 1)',
       },
     ],
   };
 
+  // Общие настройки графиков
   const options = {
     responsive: true,
     scales: {
@@ -100,25 +105,55 @@ const MachineMonitor = ({ serverId, tag, messages }: MachineMonitorProps): JSX.E
   };
 
   return (
-    <div className="machine-monitor" style={{ border: '1px solid #ccc', margin: '10px', padding: '10px' }}>
+    <div
+      className="machine-monitor"
+      style={{
+        border: '1px solid #ccc',
+        margin: '10px',
+        padding: '10px',
+      }}
+    >
       <h2>
-        Server: {serverId} <small style={{ fontWeight: 'normal' }}>[Tag: {tag}]</small>
+        Server: {serverId}{' '}
+        <small style={{ fontWeight: 'normal' }}>[Tag: {tag}]</small>
       </h2>
-      {/* Панель для управления отображением графиков */}
+
+      {/* Панель переключения отдельных графиков */}
       <div style={{ marginBottom: '10px' }}>
         <label style={{ marginRight: '10px' }}>
-          <input type="checkbox" checked={showCpu} onChange={() => setShowCpu(!showCpu)} /> CPU
+          <input
+            type="checkbox"
+            checked={showCpu}
+            onChange={() => setShowCpu(!showCpu)}
+          />{' '}
+          CPU
         </label>
         <label style={{ marginRight: '10px' }}>
-          <input type="checkbox" checked={showMemory} onChange={() => setShowMemory(!showMemory)} /> Memory
+          <input
+            type="checkbox"
+            checked={showMemory}
+            onChange={() => setShowMemory(!showMemory)}
+          />{' '}
+          Memory
         </label>
         <label style={{ marginRight: '10px' }}>
-          <input type="checkbox" checked={showDisk} onChange={() => setShowDisk(!showDisk)} /> Disk
+          <input
+            type="checkbox"
+            checked={showDisk}
+            onChange={() => setShowDisk(!showDisk)}
+          />{' '}
+          Disk
         </label>
         <label style={{ marginRight: '10px' }}>
-          <input type="checkbox" checked={showNetwork} onChange={() => setShowNetwork(!showNetwork)} /> Network
+          <input
+            type="checkbox"
+            checked={showNetwork}
+            onChange={() => setShowNetwork(!showNetwork)}
+          />{' '}
+          Network
         </label>
       </div>
+
       {/* Отображение графиков */}
       <div className="charts">
         {showCpu && (
@@ -144,6 +179,4 @@ const MachineMonitor = ({ serverId, tag, messages }: MachineMonitorProps): JSX.E
       </div>
     </div>
   );
-};
-
-export default MachineMonitor;
+}

@@ -22,20 +22,20 @@ type MetricRow struct {
 }
 
 type Storage struct {
-    db *sql.DB
+	db *sql.DB
 }
 
 // NewStorage создает новое соединение с PostgreSQL
 func NewStorage(dsn string) (*Storage, error) {
-    db, err := sql.Open("pgx", dsn)
-    if err != nil {
-        return nil, fmt.Errorf("failed to open db: %w", err)
-    }
-    // Проверим, что соединение работает
-    if err = db.Ping(); err != nil {
-        return nil, fmt.Errorf("failed to ping db: %w", err)
-    }
-    return &Storage{db: db}, nil
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open db: %w", err)
+	}
+	// Проверим, что соединение работает
+	if err = db.Ping(); err != nil {
+		return nil, fmt.Errorf("failed to ping db: %w", err)
+	}
+	return &Storage{db: db}, nil
 }
 
 // SaveMetrics сохраняет метрики в таблицу metrics
@@ -64,23 +64,26 @@ FROM metrics
 `
 	args := []interface{}{}
 	conditions := []string{}
+	paramIndex := 1
 
 	// Фильтр по server_id
 	if serverID != "" {
-		conditions = append(conditions, "server_id = $1")
+		conditions = append(conditions, fmt.Sprintf("server_id = $%d", paramIndex))
 		args = append(args, serverID)
+		paramIndex++
 	}
 	// Фильтр по tag
 	if tag != "" {
-		conditions = append(conditions, "tag = $1")
+		conditions = append(conditions, fmt.Sprintf("tag = $%d", paramIndex))
 		args = append(args, tag)
+		paramIndex++
 	}
 
 	if len(conditions) > 0 {
 		query += " WHERE " + joinConditions(conditions, " AND ")
 	}
 
-	query += " ORDER BY created_at DESC LIMIT $1"
+	query += fmt.Sprintf(" ORDER BY created_at DESC LIMIT $%d::bigint", paramIndex)
 	args = append(args, limit)
 
 	rows, err := s.db.QueryContext(ctx, query, args...)
@@ -105,8 +108,8 @@ FROM metrics
 	return results, nil
 }
 
-// LoadServers получает список всех серверов
-func (s *Storage) LoadServersWithTags(ctx context.Context) ([]string, error) {
+// LoadServers получает список всех серверов с тегами
+func (s *Storage) LoadServersWithTags(ctx context.Context) ([]struct{ ServerID, Tag string }, error) {
 	query := `
 	SELECT DISTINCT server_id, tag FROM metrics
 	`
@@ -116,14 +119,14 @@ func (s *Storage) LoadServersWithTags(ctx context.Context) ([]string, error) {
 	}
 	defer rows.Close()
 
-	var servers []string	
+	var servers []struct{ ServerID, Tag string }
 	for rows.Next() {
-		var server string
+		var serverID string
 		var tag string
-		if err := rows.Scan(&server, &tag); err != nil {
+		if err := rows.Scan(&serverID, &tag); err != nil {
 			return nil, err
 		}
-		servers = append(servers, server)
+		servers = append(servers, struct{ ServerID, Tag string }{ServerID: serverID, Tag: tag})
 	}
 	return servers, nil
 }
