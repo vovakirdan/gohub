@@ -21,6 +21,7 @@ function App(): JSX.Element {
     selectedServersRef.current = selectedServers;
     selectedTagsRef.current = selectedTags;
   }, [selectedServers, selectedTags]);
+  const serverSelectRef = useRef<HTMLSelectElement>(null);
 
   // Загружаем список серверов и их тэгов
   useEffect(() => {
@@ -42,6 +43,16 @@ function App(): JSX.Element {
       })
       .catch(err => console.error("Error fetching server list:", err));
   }, []);
+
+  // Логируем размеры server select для проверки
+  useEffect(() => {
+    if (serverSelectRef.current) {
+      console.log("Server select dimensions:", {
+        width: serverSelectRef.current.offsetWidth,
+        height: serverSelectRef.current.offsetHeight,
+      });
+    }
+  }, [selectedServers, servers]);
 
   // При выборе серверов/тэгов – загружаем исторические метрики для каждой комбинации
   useEffect(() => {
@@ -148,9 +159,16 @@ function App(): JSX.Element {
       <div style={{ marginBottom: '20px' }}>
         <label>
           Выберите серверы:
-          <select multiple value={selectedServers} onChange={handleServerChange}>
+          <select
+            multiple
+            ref={serverSelectRef}
+            value={selectedServers}
+            onChange={handleServerChange}
+          >
             {Array.from(servers.keys()).map(server => (
-              <option key={server} value={server}>{server}</option>
+              <option key={server} value={server}>
+                {server}
+              </option>
             ))}
           </select>
         </label>
@@ -161,12 +179,15 @@ function App(): JSX.Element {
         <div key={server} style={{ marginBottom: '20px' }}>
           <label>
             Выберите тэги для сервера {server}:
-            <select multiple
+            <select
+              multiple
               value={selectedTags[server] || []}
               onChange={(e) => handleTagChange(server, e)}
             >
               {servers.get(server)?.map(tag => (
-                <option key={tag} value={tag}>{tag}</option>
+                <option key={tag} value={tag}>
+                  {tag}
+                </option>
               ))}
             </select>
           </label>
@@ -177,8 +198,11 @@ function App(): JSX.Element {
       <button onClick={toggleLayout} style={{ marginBottom: '20px' }}>
         Переключить на {layoutMode === 'grid' ? 'список' : 'сеть'}
       </button>
-      
-      <p>Количество выбранных групп: {selectedServers.reduce((acc, server) => acc + (selectedTags[server]?.length || 0), 0)}</p>
+
+      <p>
+        Количество выбранных групп:{' '}
+        {selectedServers.reduce((acc, server) => acc + (selectedTags[server]?.length || 0), 0)}
+      </p>
 
       {/* Отображение панелей для каждой выбранной комбинации server||tag */}
       <div className={layoutMode === 'grid' ? 'machine-grid' : 'machine-list'}>

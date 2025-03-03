@@ -3,7 +3,9 @@ version: '3.8'
 services:
   # ---- PostgreSQL ----
   db:
-    image: postgres:15
+    build:
+      context: ./deploy/postgres
+      dockerfile: Dockerfile
     container_name: gohub_postgres
     environment:
       POSTGRES_USER: gohub
