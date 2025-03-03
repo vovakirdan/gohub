@@ -105,6 +105,29 @@ FROM metrics
 	return results, nil
 }
 
+// LoadServers получает список всех серверов
+func (s *Storage) LoadServersWithTags(ctx context.Context) ([]string, error) {
+	query := `
+	SELECT DISTINCT server_id, tag FROM metrics
+	`
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var servers []string	
+	for rows.Next() {
+		var server string
+		var tag string
+		if err := rows.Scan(&server, &tag); err != nil {
+			return nil, err
+		}
+		servers = append(servers, server)
+	}
+	return servers, nil
+}
+
 // joinConditions объединяет условия SQL
 func joinConditions(conds []string, sep string) string {
 	return strings.Join(conds, sep)

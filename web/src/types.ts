@@ -8,4 +8,20 @@ export type MetricMessage = {
     network_usage: number;
     timestamp: number;
   };
+
+export type ServerRow = {
+  ServerID: string;
+  Tag: string;
+};
+
+export type MetricRow = {
+  ID: string; // or number, depending on your data
+  ServerID: string;
+  Tag: string;
+  CPUUsage: number;
+  MemoryUsage: number;
+  DiskUsage: number;
+  NetworkUsage: number;
+  CreatedAt: string; // Assuming this is an ISO8601 string
+};
   
