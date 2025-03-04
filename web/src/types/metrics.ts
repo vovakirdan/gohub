@@ -1,4 +1,3 @@
-
 export interface MetricMessage {
   message: string;
   server_id: string;
@@ -29,4 +28,9 @@ export interface MetricsFilterState {
   showDisk: boolean;
   showNetwork: boolean;
   viewMode: 'grid' | 'list';
+}
+
+export interface ServerInfo {
+  server_id: string;
+  tag: string;
 }

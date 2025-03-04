@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, ReactNode } from 'react';
-import { MetricMessage, ServerMetrics, MetricsFilterState, MetricType } from '@/types/metrics';
+import { MetricMessage, ServerMetrics, MetricsFilterState, MetricType, ServerInfo } from '@/types/metrics';
 
 // Define context state
 interface MetricsState {
@@ -11,12 +11,12 @@ interface MetricsState {
 // Define action types
 type MetricsAction =
   | { type: 'ADD_METRIC_DATA'; payload: MetricMessage }
-  | { type: 'SET_METRIC_HISTORY'; payload: { serverId: string; tag: string; history: MetricMessage[] } }
-  | { type: 'INITIALIZE_SERVER'; payload: { serverId: string; tag: string } }
   | { type: 'SET_SERVER_VISIBILITY'; payload: { serverId: string; isHidden: boolean } }
-  | { type: 'TOGGLE_METRIC_FILTER'; payload: { metricType: 'cpu_usage' | 'memory_usage' | 'disk_usage' | 'network_usage' } }
+  | { type: 'TOGGLE_METRIC_FILTER'; payload: { metricType: MetricType } }
   | { type: 'SET_VIEW_MODE'; payload: 'grid' | 'list' }
-  | { type: 'SET_LOADING'; payload: boolean };
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SET_METRIC_HISTORY'; payload: { serverId: string; tag: string; history: MetricMessage[] } }
+  | { type: 'INITIALIZE_SERVERS'; payload: ServerInfo[] };
 
 // Initial state
 const initialState: MetricsState = {
@@ -40,6 +40,61 @@ const MetricsContext = createContext<{
 // Reducer function
 function metricsReducer(state: MetricsState, action: MetricsAction): MetricsState {
   switch (action.type) {
+    case 'INITIALIZE_SERVERS': {
+      const serverInfoList = action.payload;
+      const initializedServers: Record<string, ServerMetrics> = {};
+      
+      serverInfoList.forEach(({ server_id, tag }) => {
+        // If server already exists in state, keep it
+        if (state.servers[server_id]) {
+          initializedServers[server_id] = state.servers[server_id];
+          
+          // Add the tag if it doesn't exist yet
+          if (!initializedServers[server_id].tags[tag]) {
+            initializedServers[server_id].tags[tag] = {
+              current: {
+                message: "Waiting for data...",
+                server_id,
+                tag,
+                cpu_usage: 0,
+                memory_usage: 0,
+                disk_usage: 0,
+                network_usage: 0,
+                timestamp: Date.now()
+              },
+              history: []
+            };
+          }
+        } else {
+          // Create a new server entry
+          initializedServers[server_id] = {
+            server_id,
+            isHidden: false,
+            tags: {
+              [tag]: {
+                current: {
+                  message: "Waiting for data...",
+                  server_id,
+                  tag,
+                  cpu_usage: 0,
+                  memory_usage: 0,
+                  disk_usage: 0,
+                  network_usage: 0,
+                  timestamp: Date.now()
+                },
+                history: []
+              }
+            }
+          };
+        }
+      });
+      
+      return {
+        ...state,
+        servers: initializedServers
+      };
+    }
+    
     case 'ADD_METRIC_DATA': {
       const { server_id, tag, ...metricData } = action.payload;
       
@@ -147,25 +202,6 @@ function metricsReducer(state: MetricsState, action: MetricsAction): MetricsStat
         servers: {
           ...state.servers,
           [serverId]: updatedServer
-        }
-      };
-    }
-      
-    case 'INITIALIZE_SERVER': {
-      return {
-        ...state,
-        servers: {
-          ...state.servers,
-          [action.payload.serverId]: {
-            server_id: action.payload.serverId,
-            tags: {
-              [action.payload.tag]: {
-                current: null,
-                history: []
-              }
-            },
-            isHidden: false
-          }
         }
       };
     }

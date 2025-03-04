@@ -1,14 +1,53 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useMetrics } from '@/context/MetricsContext';
-import { MetricMessage } from '@/types/metrics';
+import { MetricMessage, ServerInfo } from '@/types/metrics';
 import { useWebSocket } from './useWebSocket';
 import { toast } from 'sonner';
 
 // Mock WebSocket URL - replace with actual URL in production
 const WS_URL = 'ws://localhost:8080/ws';
+const API_URL = 'http://localhost:8080/api/list_servers';
 
 export function useMetricsData() {
   const { state, dispatch } = useMetrics();
+  const [serversInitialized, setServersInitialized] = useState(false);
+  
+  // Fetch server list on component mount
+  useEffect(() => {
+    const fetchServerList = async () => {
+      try {
+        dispatch({ type: 'SET_LOADING', payload: true });
+        
+        const response = await fetch(API_URL);
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch server list');
+        }
+        
+        const serverList = await response.json() as ServerInfo[];
+        // if undefined, throw error
+        if (!serverList || serverList.length === 0 || !Array.isArray(serverList) || !serverList.every(item => typeof item.server_id === 'string' && typeof item.tag === 'string')) {
+          throw new Error('Failed to fetch server list');
+        }
+        
+        // Initialize empty servers with the fetched server IDs and tags
+        dispatch({
+          type: 'INITIALIZE_SERVERS',
+          payload: serverList
+        });
+        
+        setServersInitialized(true);
+      } catch (error) {
+        console.error('Error fetching server list:', error);
+        toast.error('Failed to load server list. Using demo data instead.');
+        setServersInitialized(true); // Still mark as initialized to show demo data
+      } finally {
+        dispatch({ type: 'SET_LOADING', payload: false });
+      }
+    };
+    
+    fetchServerList();
+  }, [dispatch]);
   
   // Handle incoming metric data
   const handleMetricData = useCallback((data: MetricMessage) => {
@@ -23,12 +62,6 @@ export function useMetricsData() {
   
   // Fetch historical data for a server & tag
   const fetchServerHistory = useCallback(async (serverId: string, tag: string) => {
-    // Проверяем, что serverId и tag определены
-    if (!serverId || !tag) {
-      console.warn('Cannot fetch history: serverId or tag is undefined');
-      return;
-    }
-    
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       
@@ -53,40 +86,6 @@ export function useMetricsData() {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
   }, [dispatch]);
-  
-  // Fetch list of servers
-  const fetchServerList = useCallback(async () => {
-    try {
-      dispatch({ type: 'SET_LOADING', payload: true });
-      
-      const response = await fetch('http://localhost:8080/api/list_servers');
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch server list');
-      }
-      
-      const serverList = await response.json();
-      
-      // Initialize servers in state
-      for (const { ServerId, tag } of serverList) {
-        if (ServerId && tag) {
-          dispatch({
-            type: 'INITIALIZE_SERVER',
-            payload: { serverId: ServerId, tag }
-          });
-          
-          // Fetch history for each server only if we have valid IDs
-          await fetchServerHistory(ServerId, tag);
-        }
-      }
-      
-    } catch (error) {
-      console.error('Error fetching server list:', error);
-      toast.error('Failed to load server list');
-    } finally {
-      dispatch({ type: 'SET_LOADING', payload: false });
-    }
-  }, [dispatch, fetchServerHistory]);
   
   // Toggle server visibility
   const toggleServerVisibility = useCallback((serverId: string) => {
@@ -120,19 +119,14 @@ export function useMetricsData() {
     return Object.values(state.servers).filter(server => !server.isHidden);
   }, [state.servers]);
   
-  // Load servers on component mount
-  useEffect(() => {
-    fetchServerList();
-  }, [fetchServerList]);
-  
   return {
     isConnected,
     servers: state.servers,
     filters: state.filters,
     isLoading: state.isLoading,
+    serversInitialized,
     visibleServers: getVisibleServers(),
     fetchServerHistory,
-    fetchServerList,
     toggleServerVisibility,
     toggleMetricFilter,
     setViewMode
