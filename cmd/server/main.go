@@ -11,6 +11,8 @@ import (
 	"gohub/internal/db"
 	"gohub/internal/server"
 	ws "gohub/internal/websocket"
+
+  	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // corsMiddleware оборачивает http.Handler, устанавливая заголовки для поддержки CORS.
@@ -96,6 +98,14 @@ func main() {
 
 	srv := server.NewMetricsServer(storage, hub)
 
+	go func() {
+        http.Handle("/metrics", promhttp.Handler())
+        log.Println("Prometheus metrics on :2112/metrics")
+        if err := http.ListenAndServe(":2112", nil); err != nil {
+            log.Fatalf("Prometheus metrics server error: %v", err)
+        }
+    }()
+	
 	// Запускаем gRPC
 	if err := srv.Start(); err != nil {
 		log.Fatalf("Failed to start gRPC server: %v", err)
