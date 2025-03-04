@@ -85,7 +85,7 @@ gohub/
 4. All metrics can be analyzed through **Prometheus + Grafana**.
 
 # **📌 Next Steps**
-- [ ] Add a PostgreSQL database and store the history of metrics.
-- [ ] Implement a web interface with React (Next.js) and graphs.
-- [ ] Run everything in Docker (with PostgreSQL and Prometheus).
+- [x] Add a PostgreSQL database and store the history of metrics.
+- [x] Implement a web interface with React (Next.js) and graphs.
+- [x] Run everything in Docker (with PostgreSQL and Prometheus).
 - [ ] Set up a notification system (email/Telegram).
