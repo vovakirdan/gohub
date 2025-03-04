@@ -2,30 +2,33 @@
 FROM node:22-alpine AS build
 WORKDIR /app
 
-# Копируем package.json, yarn.lock (или package-lock.json) 
-COPY package*.json ./
-COPY yarn.lock ./
-# или COPY package.json yarn.lock ./
+# Копируем package.json и lock-файл
+COPY package.json package-lock.json ./
 
-RUN yarn install
+# Устанавливаем зависимости
+RUN npm ci
 
-# Копируем весь код
+# Копируем весь код проекта
 COPY . .
 
 # Собираем production-бандл
-RUN yarn build
+RUN npm run build
 
 # ---- Stage 2: run with Nginx ----
 FROM nginx:alpine
-# Удалим дефолтный конфиг, если нужно
-RUN rm /etc/nginx/conf.d/default.conf
 
-# Копируем сборку из предыдущего stage
-COPY --from=build /app/build /usr/share/nginx/html
+# Удаляем дефолтный конфиг (если он там есть)
+RUN rm -f /etc/nginx/conf.d/default.conf
 
-# Если хотим настроить прокси внутри Nginx, можно добавить конфиг
-# Для простоты оставим как есть, без прокси
-COPY ./nginx.conf /etc/nginx/conf.d
+# Копируем Nginx конфигурацию в правильное место
+COPY nginx.conf /etc/nginx/nginx.conf
 
+# Копируем собранный фронтенд
+COPY --from=build /app/dist /usr/share/nginx/html
+
+# Открываем порт
 EXPOSE 80
+
+# Запуск Nginx
 CMD ["nginx", "-g", "daemon off;"]
+    
