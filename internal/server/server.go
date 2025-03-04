@@ -11,8 +11,52 @@ import (
 	"gohub/internal/db"
 	ws "gohub/internal/websocket"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 )
+
+// Определяем GaugeVec для каждой метрики
+var (
+	agentCPUUsage = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "agent_cpu_usage",
+			Help: "Current CPU usage (percent) from gRPC agents",
+		},
+		[]string{"server_id", "tag"},
+	)
+	agentMemUsage = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "agent_memory_usage",
+			Help: "Current memory usage (percent) from gRPC agents",
+		},
+		[]string{"server_id", "tag"},
+	)
+	agentDiskUsage = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "agent_disk_usage",
+			Help: "Current disk usage (percent) from gRPC agents",
+		},
+		[]string{"server_id", "tag"},
+	)
+	agentNetworkUsage = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "agent_network_usage",
+			Help: "Current network usage (bytes) from gRPC agents",
+		},
+		[]string{"server_id", "tag"},
+	)
+)
+
+// Init
+func init() {
+	// Регистрируем все наши векторы
+	prometheus.MustRegister(
+		agentCPUUsage,
+		agentMemUsage,
+		agentDiskUsage,
+		agentNetworkUsage,
+	)
+}
 
 // MetricsServer реализация gRPC-сервиса
 type MetricsServer struct {
@@ -57,6 +101,12 @@ func (s *MetricsServer) SendMetrics(ctx context.Context, req *api.MetricsRequest
 		log.Printf("DB insert error: %v", err)
 		return &api.MetricsResponse{Status: "DB Error"}, err
 	}
+
+	// Обновляем метрики
+	agentCPUUsage.WithLabelValues(req.ServerId, req.Tag).Set(req.CpuUsage)
+	agentMemUsage.WithLabelValues(req.ServerId, req.Tag).Set(req.MemoryUsage)
+	agentDiskUsage.WithLabelValues(req.ServerId, req.Tag).Set(req.DiskUsage)
+	agentNetworkUsage.WithLabelValues(req.ServerId, req.Tag).Set(req.NetworkUsage)
 
 	// Рассылаем по WebSocket
 	s.hub.BroadcastMetrics(ws.WSMetricUpdate{
