@@ -1,7 +1,7 @@
 import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { MetricMessage, MetricType } from '@/types/metrics';
-import { formatTimestamp, getMetricColor, getMetricLabel } from '@/utils/formatters';
+import { formatTimestamp, getMetricColor, getMetricLabel, formatBytes } from '@/utils/formatters';
 
 interface MetricsChartProps {
   history: MetricMessage[];
@@ -32,6 +32,9 @@ const MetricsChart: React.FC<MetricsChartProps> = ({
     );
   }
 
+  // Determine if we're showing network usage (which is in bytes)
+  const isNetworkMetric = metricType === 'network_usage';
+
   return (
     <div className="w-full bg-white/50 rounded-lg p-4 shadow-sm border transition-all duration-300 ease-in-out mb-3">
       <div className="text-xs font-medium mb-2 text-muted-foreground">{getMetricLabel(metricType)}</div>
@@ -45,7 +48,7 @@ const MetricsChart: React.FC<MetricsChartProps> = ({
             tickMargin={8}
           />
           <YAxis 
-            domain={[0, 100]} 
+            domain={isNetworkMetric ? ['auto', 'auto'] : [0, 100]} 
             tick={{ fontSize: 10 }} 
             stroke="#94a3b8"
             tickMargin={8}
@@ -63,7 +66,9 @@ const MetricsChart: React.FC<MetricsChartProps> = ({
             formatter={(value: any, name: any) => {
               // Handle the value being a number or string
               const formattedValue = typeof value === 'number' 
-                ? `${value.toFixed(1)}%` 
+              ? isNetworkMetric 
+              ? formatBytes(value)
+              : `${value.toFixed(1)}%` 
                 : value;
               return [formattedValue, getMetricLabel(String(name))];
             }}

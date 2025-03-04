@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { MetricsProvider } from '@/context/MetricsContext';
 import { useMetricsData } from '@/hooks/useMetricsData';
 import MetricsHeader from '@/components/MetricsHeader';
 import ServerGrid from '@/components/ServerGrid';
 import ServerList from '@/components/ServerList';
 import { motion } from 'framer-motion';
+import { ServerMetrics } from '@/types/metrics';
 
 // Mock data for demonstration
 const mockMetricData = {
@@ -21,6 +22,7 @@ const mockMetricData = {
 // Wrapper component that uses the context
 const MetricsDashboard: React.FC = () => {
   const { filters, visibleServers, isConnected, isLoading } = useMetricsData();
+  const [hiddenServerIds, setHiddenServerIds] = useState<Set<string>>(new Set());
   
   return (
     <div className="container py-8">

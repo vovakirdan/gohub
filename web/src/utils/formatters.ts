@@ -15,6 +15,18 @@ export const formatTimestamp = (timestamp: number): string => {
 };
 
 /**
+ * Formats bytes to a human-readable format (KB, MB, GB)
+ */
+export const formatBytes = (bytes: number): string => {
+  if (bytes === 0) return '0 B';
+  
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  
+  return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+/**
  * Gets a user-friendly label for a metric type
  */
 export const getMetricLabel = (metricType: string): string => {

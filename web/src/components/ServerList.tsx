@@ -1,7 +1,7 @@
 import React from 'react';
 import { ServerMetrics, MetricType } from '@/types/metrics';
 import { Cpu, HardDrive, Microchip, Network, Eye, EyeOff, ChevronDown, ChevronUp } from 'lucide-react';
-import { formatPercentage } from '@/utils/formatters';
+import { formatPercentage, formatBytes } from '@/utils/formatters';
 import { useMetrics } from '@/context/MetricsContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import MetricsChart from './MetricsChart';
@@ -15,6 +15,7 @@ const ServerList: React.FC<ServerListProps> = ({ servers }) => {
   const { state, dispatch } = useMetrics();
   const { filters } = state;
   const [expandedItems, setExpandedItems] = React.useState<Map<string, Set<MetricType>>>(new Map());
+  const [hiddenServers, setHiddenServers] = React.useState<Set<string>>(new Set());
   
   if (servers.length === 0) {
     return (
@@ -25,14 +26,18 @@ const ServerList: React.FC<ServerListProps> = ({ servers }) => {
   }
   
   const toggleVisibility = (serverId: string) => {
-    dispatch({
-      type: 'SET_SERVER_VISIBILITY',
-      payload: { 
-        serverId, 
-        isHidden: !servers.find(s => s.server_id === serverId)?.isHidden 
+    setHiddenServers(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(serverId)) {
+        newSet.delete(serverId);
+      } else {
+        newSet.add(serverId);
       }
+      return newSet;
     });
   };
+  
+  const visibleServers = servers.filter(server => !hiddenServers.has(server.server_id));
   
   const toggleExpandedMetric = (rowKey: string, metricType: MetricType) => {
     setExpandedItems(prev => {
@@ -60,17 +65,14 @@ const ServerList: React.FC<ServerListProps> = ({ servers }) => {
     return expandedItems.has(rowKey) && expandedItems.get(rowKey)!.has(metricType);
   };
 
-  // New: Toggle all metrics in a row
   const toggleAllMetrics = (rowKey: string, server: ServerMetrics) => {
     setExpandedItems(prev => {
       const newMap = new Map(prev);
       const hasExpandedMetrics = prev.has(rowKey) && prev.get(rowKey)!.size > 0;
       
       if (hasExpandedMetrics) {
-        // If any metrics are expanded, collapse all
         newMap.delete(rowKey);
       } else {
-        // Expand all visible metrics
         const metricsToExpand = new Set<MetricType>();
         if (filters.showCpu) metricsToExpand.add('cpu_usage');
         if (filters.showMemory) metricsToExpand.add('memory_usage');
@@ -84,7 +86,6 @@ const ServerList: React.FC<ServerListProps> = ({ servers }) => {
     });
   };
 
-  // Check if all visible metrics are expanded for a row
   const areAllMetricsExpanded = (rowKey: string): boolean => {
     if (!expandedItems.has(rowKey)) return false;
     
@@ -97,6 +98,22 @@ const ServerList: React.FC<ServerListProps> = ({ servers }) => {
     if (filters.showNetwork) visibleMetricsCount++;
     
     return expandedSet.size === visibleMetricsCount;
+  };
+
+  // Calculate the correct colspan value for the hidden servers row
+  const calculateColspan = (): number => {
+    let count = 1; // Start with 1 for the first column (Server/Tag)
+    
+    // Add 1 for each visible metric column
+    if (filters.showCpu) count += 1;
+    if (filters.showMemory) count += 1;
+    if (filters.showDisk) count += 1;
+    if (filters.showNetwork) count += 1;
+    
+    // Add 1 for the actions column
+    count += 1;
+    
+    return count;
   };
 
   return (
@@ -147,7 +164,7 @@ const ServerList: React.FC<ServerListProps> = ({ servers }) => {
             </tr>
           </thead>
           <tbody className="divide-y">
-            {servers.map(server => (
+            {visibleServers.map(server => (
               Object.keys(server.tags).map(tag => {
                 const metrics = server.tags[tag]?.current;
                 const history = server.tags[tag]?.history || [];
@@ -284,8 +301,8 @@ const ServerList: React.FC<ServerListProps> = ({ servers }) => {
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2 justify-between">
                             <div className="flex items-center gap-2">
-                              <div>{formatPercentage(metrics.network_usage)}</div>
-                              <StatusIndicator value={metrics.network_usage} />
+                              <div>{formatBytes(metrics.network_usage)}</div>
+                              <StatusIndicator value={metrics.network_usage > 1048576 ? 75 : (metrics.network_usage > 524288 ? 50 : 25)} />
                             </div>
                             <button 
                               onClick={() => toggleExpandedMetric(rowKey, 'network_usage')}
@@ -334,13 +351,10 @@ const ServerList: React.FC<ServerListProps> = ({ servers }) => {
                           <button 
                             onClick={() => toggleVisibility(server.server_id)}
                             className="p-1 rounded-full hover:bg-muted/50 transition-colors"
-                            aria-label={server.isHidden ? "Show server" : "Hide server"}
+                            aria-label="Hide server"
+                            title="Hide server"
                           >
-                            {server.isHidden ? (
-                              <EyeOff size={16} className="text-muted-foreground" />
-                            ) : (
-                              <Eye size={16} className="text-muted-foreground" />
-                            )}
+                            <Eye size={16} className="text-muted-foreground" />
                           </button>
                         </div>
                       </td>
@@ -349,6 +363,26 @@ const ServerList: React.FC<ServerListProps> = ({ servers }) => {
                 );
               })
             ))}
+            
+            {hiddenServers.size > 0 && (
+              <tr className="bg-muted/10">
+                <td colSpan={calculateColspan()} className="px-4 py-3">
+                  <div className="flex flex-wrap gap-2">
+                    <span className="text-sm text-muted-foreground">Hidden servers:</span>
+                    {Array.from(hiddenServers).map(serverId => (
+                      <button
+                        key={serverId}
+                        onClick={() => toggleVisibility(serverId)}
+                        className="inline-flex items-center gap-1 px-2 py-1 bg-muted/30 rounded-md text-xs hover:bg-muted/50 transition-colors"
+                      >
+                        {serverId}
+                        <EyeOff size={12} className="text-muted-foreground" />
+                      </button>
+                    ))}
+                  </div>
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

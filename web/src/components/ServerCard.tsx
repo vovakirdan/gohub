@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Cpu, HardDrive, Microchip, Network, Eye, EyeOff, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MetricMessage, ServerMetrics, MetricType } from '@/types/metrics';
-import { formatPercentage } from '@/utils/formatters';
+import { formatPercentage, formatBytes } from '@/utils/formatters';
 import { useMetrics } from '@/context/MetricsContext';
 import MetricsChart from './MetricsChart';
 import StatusIndicator from './StatusIndicator';
@@ -42,6 +42,36 @@ const ServerCard: React.FC<ServerCardProps> = ({ server, tag }) => {
       return newSet;
     });
   };
+
+  // Toggle all metrics at once
+  const toggleAllMetrics = () => {
+    setExpandedMetrics(prev => {
+      if (prev.size > 0) {
+        // If any are expanded, collapse all
+        return new Set();
+      } else {
+        // Expand all visible metrics
+        const newSet = new Set<MetricType>();
+        if (filters.showCpu) newSet.add('cpu_usage');
+        if (filters.showMemory) newSet.add('memory_usage');
+        if (filters.showDisk) newSet.add('disk_usage');
+        if (filters.showNetwork) newSet.add('network_usage');
+        return newSet;
+      }
+    });
+  };
+
+  // Check if all visible metrics are expanded
+  const areAllMetricsExpanded = (): boolean => {
+    let visibleMetricsCount = 0;
+    
+    if (filters.showCpu) visibleMetricsCount++;
+    if (filters.showMemory) visibleMetricsCount++;
+    if (filters.showDisk) visibleMetricsCount++;
+    if (filters.showNetwork) visibleMetricsCount++;
+    
+    return expandedMetrics.size === visibleMetricsCount && visibleMetricsCount > 0;
+  };
   
   return (
     <motion.div 
@@ -61,6 +91,18 @@ const ServerCard: React.FC<ServerCardProps> = ({ server, tag }) => {
             </span>
           </div>
           <div className="flex items-center gap-2">
+          <button 
+              onClick={toggleAllMetrics}
+              className="p-1 rounded-full hover:bg-muted/50 transition-colors"
+              aria-label={areAllMetricsExpanded() ? "Collapse all metrics" : "Expand all metrics"}
+              title={areAllMetricsExpanded() ? "Collapse all metrics" : "Expand all metrics"}
+            >
+              {areAllMetricsExpanded() ? (
+                <ChevronUp size={16} className="text-muted-foreground" />
+              ) : (
+                <ChevronDown size={16} className="text-muted-foreground" />
+              )}
+            </button>
             <button 
               onClick={toggleVisibility}
               className="p-1 rounded-full hover:bg-muted/50 transition-colors"
@@ -158,9 +200,9 @@ const ServerCard: React.FC<ServerCardProps> = ({ server, tag }) => {
                 <div className="text-xs text-muted-foreground">Network</div>
                 <div className="flex items-center gap-2">
                   <div className="font-medium">
-                    {formatPercentage(metrics.network_usage)}
+                    {formatBytes(metrics.network_usage)}
                   </div>
-                  <StatusIndicator value={metrics.network_usage} />
+                  <StatusIndicator value={metrics.network_usage > 1048576 ? 75 : (metrics.network_usage > 524288 ? 50 : 25)} />
                 </div>
               </div>
               <button 
