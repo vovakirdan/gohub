@@ -11,11 +11,12 @@ interface MetricsState {
 // Define action types
 type MetricsAction =
   | { type: 'ADD_METRIC_DATA'; payload: MetricMessage }
+  | { type: 'SET_METRIC_HISTORY'; payload: { serverId: string; tag: string; history: MetricMessage[] } }
+  | { type: 'INITIALIZE_SERVER'; payload: { serverId: string; tag: string } }
   | { type: 'SET_SERVER_VISIBILITY'; payload: { serverId: string; isHidden: boolean } }
-  | { type: 'TOGGLE_METRIC_FILTER'; payload: { metricType: MetricType } }
+  | { type: 'TOGGLE_METRIC_FILTER'; payload: { metricType: 'cpu_usage' | 'memory_usage' | 'disk_usage' | 'network_usage' } }
   | { type: 'SET_VIEW_MODE'; payload: 'grid' | 'list' }
-  | { type: 'SET_LOADING'; payload: boolean }
-  | { type: 'SET_METRIC_HISTORY'; payload: { serverId: string; tag: string; history: MetricMessage[] } };
+  | { type: 'SET_LOADING'; payload: boolean };
 
 // Initial state
 const initialState: MetricsState = {
@@ -146,6 +147,25 @@ function metricsReducer(state: MetricsState, action: MetricsAction): MetricsStat
         servers: {
           ...state.servers,
           [serverId]: updatedServer
+        }
+      };
+    }
+      
+    case 'INITIALIZE_SERVER': {
+      return {
+        ...state,
+        servers: {
+          ...state.servers,
+          [action.payload.serverId]: {
+            server_id: action.payload.serverId,
+            tags: {
+              [action.payload.tag]: {
+                current: null,
+                history: []
+              }
+            },
+            isHidden: false
+          }
         }
       };
     }

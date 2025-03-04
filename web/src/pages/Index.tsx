@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { MetricsProvider } from '@/context/MetricsContext';
 import { useMetricsData } from '@/hooks/useMetricsData';
@@ -21,80 +20,7 @@ const mockMetricData = {
 
 // Wrapper component that uses the context
 const MetricsDashboard: React.FC = () => {
-  const { filters, visibleServers, isConnected } = useMetricsData();
-  
-  // For demonstration, create some mock data if no servers are connected yet
-  const serversToDisplay = visibleServers.length > 0 
-    ? visibleServers 
-    : [
-        {
-          server_id: "server-001",
-          tags: {
-            "production": {
-              current: { ...mockMetricData, timestamp: Date.now() },
-              history: Array.from({ length: 20 }, (_, i) => ({
-                ...mockMetricData,
-                cpu_usage: Math.random() * 100,
-                memory_usage: Math.random() * 100,
-                disk_usage: Math.random() * 100,
-                network_usage: Math.random() * 100,
-                timestamp: Date.now() - (19 - i) * 60000
-              }))
-            }
-          }
-        },
-        {
-          server_id: "server-002",
-          tags: {
-            "staging": {
-              current: { 
-                ...mockMetricData, 
-                server_id: "server-002", 
-                tag: "staging",
-                cpu_usage: 22,
-                memory_usage: 35,
-                timestamp: Date.now() 
-              },
-              history: Array.from({ length: 20 }, (_, i) => ({
-                ...mockMetricData,
-                server_id: "server-002",
-                tag: "staging",
-                cpu_usage: Math.random() * 100,
-                memory_usage: Math.random() * 100,
-                disk_usage: Math.random() * 100,
-                network_usage: Math.random() * 100,
-                timestamp: Date.now() - (19 - i) * 60000
-              }))
-            }
-          }
-        },
-        {
-          server_id: "server-003",
-          tags: {
-            "development": {
-              current: { 
-                ...mockMetricData, 
-                server_id: "server-003", 
-                tag: "development",
-                cpu_usage: 12,
-                memory_usage: 48,
-                disk_usage: 33,
-                timestamp: Date.now() 
-              },
-              history: Array.from({ length: 20 }, (_, i) => ({
-                ...mockMetricData,
-                server_id: "server-003",
-                tag: "development",
-                cpu_usage: Math.random() * 100,
-                memory_usage: Math.random() * 100,
-                disk_usage: Math.random() * 100,
-                network_usage: Math.random() * 100,
-                timestamp: Date.now() - (19 - i) * 60000
-              }))
-            }
-          }
-        }
-      ];
+  const { filters, visibleServers, isConnected, isLoading } = useMetricsData();
   
   return (
     <div className="container py-8">
@@ -111,19 +37,30 @@ const MetricsDashboard: React.FC = () => {
             <div className="flex items-center">
               <div className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse mr-2"></div>
               <p className="text-sm text-yellow-800">
-                WebSocket connection not established. Showing demo data. Attempting to reconnect...
+                WebSocket connection not established. Attempting to reconnect...
               </p>
             </div>
           </motion.div>
         )}
         
-        <div className="view-transition">
-          {filters.viewMode === 'grid' ? (
-            <ServerGrid servers={serversToDisplay} />
-          ) : (
-            <ServerList servers={serversToDisplay} />
-          )}
-        </div>
+        {isLoading ? (
+          <div className="flex justify-center items-center py-20">
+            <div className="h-8 w-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin"></div>
+            <span className="ml-3 text-muted-foreground">Loading server data...</span>
+          </div>
+        ) : visibleServers.length === 0 ? (
+          <div className="text-center py-20">
+            <p className="text-muted-foreground">No servers available. Please check your connection.</p>
+          </div>
+        ) : (
+          <div className="view-transition">
+            {filters.viewMode === 'grid' ? (
+              <ServerGrid servers={visibleServers} />
+            ) : (
+              <ServerList servers={visibleServers} />
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
