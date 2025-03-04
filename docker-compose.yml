@@ -30,7 +30,7 @@ services:
     ports:
       - "9187:9187"
     restart: unless-stopped
-    
+
   # ---- gRPC Go Server ----
   server:
     build: 
@@ -60,6 +60,20 @@ services:
       - "9090:9090"
     restart: unless-stopped
 
+  # ---- Grafana ----
+  grafana:
+    image: grafana/grafana:latest
+    container_name: gohub_grafana
+    depends_on:
+      - prometheus
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: "admin"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    restart: unless-stopped
+
   # ---- React ----
   web:
     build:
@@ -77,3 +91,4 @@ services:
 
 volumes:
   postgres_data:
+  grafana_data:
