@@ -18,6 +18,7 @@ type WSMetricUpdate struct {
 	MemoryUsage float64 `json:"memory_usage"`
 	DiskUsage   float64 `json:"disk_usage"`
 	NetworkUsage float64 `json:"network_usage"`
+	Timestamp    int64   `json:"timestamp"`
 }
 
 type Hub struct {

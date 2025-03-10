@@ -6,7 +6,7 @@ import (
 	"log"
 	"net"
 	"sync"
-
+	"time"
 	"gohub/internal/api"
 	"gohub/internal/db"
 	ws "gohub/internal/websocket"
@@ -117,6 +117,7 @@ func (s *MetricsServer) SendMetrics(ctx context.Context, req *api.MetricsRequest
 		MemoryUsage:   req.MemoryUsage,
 		DiskUsage:     req.DiskUsage,
 		NetworkUsage:  req.NetworkUsage,
+		Timestamp:     time.Now().Unix(),
 	})
 
 	return &api.MetricsResponse{Status: "OK"}, nil
