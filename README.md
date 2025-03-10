@@ -3,6 +3,14 @@
 
 **Goal**: To develop a distributed monitoring system that collects metrics from agents on servers and sends them to a central service for display.
 
+### Run
+```
+docker compose up --build
+```
+To see the frontend, open the browser and go to `http://localhost:3000`.
+To see Prometheus, open the browser and go to `http://localhost:9090`.
+To see Grafana, open the browser and go to `http://localhost:3001`.
+
 ### **🛠 Technology Stack**
 1. **Go (gRPC server)**
    - Implements API for agents and frontend.
