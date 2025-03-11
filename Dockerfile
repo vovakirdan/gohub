@@ -19,6 +19,9 @@ WORKDIR /app
 # Копируем бинарник из builder
 COPY --from=builder /bin/server /app/server
 
+# Копируем конфиги
+COPY --from=builder /app/config /app/config
+
 # Открываем порт 50051
 EXPOSE 50051
 
