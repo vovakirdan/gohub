@@ -38,6 +38,24 @@ func NewStorage(dsn string) (*Storage, error) {
 	return &Storage{db: db}, nil
 }
 
+// Проверим, создана ли таблица metrics
+func (s *Storage) EnsureSchema(ctx context.Context) error {
+	query := `
+	CREATE TABLE IF NOT EXISTS metrics (
+    	id SERIAL PRIMARY KEY,
+		server_id TEXT NOT NULL,
+		tag TEXT,
+		cpu_usage DOUBLE PRECISION NOT NULL,
+		memory_usage DOUBLE PRECISION NOT NULL,
+		disk_usage DOUBLE PRECISION NOT NULL,
+		network_usage DOUBLE PRECISION NOT NULL,
+		created_at TIMESTAMPTZ DEFAULT now()
+	);
+	`
+	_, err := s.db.ExecContext(ctx, query)
+	return err
+}
+
 // SaveMetrics сохраняет метрики в таблицу metrics
 func (s *Storage) SaveMetrics(
 	ctx context.Context,

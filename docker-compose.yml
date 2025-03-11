@@ -3,6 +3,7 @@ version: '3.8'
 services:
   # ---- PostgreSQL ----
   db:
+    profiles: ["localdb"]
     build:
       context: ./deploy/postgres
       dockerfile: Dockerfile
@@ -39,13 +40,19 @@ services:
     container_name: gohub_server
     depends_on:
       - db
-    environment:
-      # DSN для подключения к контейнеру db (hostname = "db")
-      DATABASE_URL: postgres://gohub:gohub@db:5432/gohub?sslmode=disable
     ports:
       - "50051:50051"  # gRPC
       - "8080:8080"    # HTTP/WebSocket
       - "2112:2112"    # Port for Prometheus metrics
+    env_file:
+      - ./.env
+    environment:
+      # переменные окружения для подключения к базе, можем переопределить в .env
+      DATABASE__HOST: "db"
+      DATABASE__PORT: "5432"
+      DATABASE__USER: "gohub"
+      DATABASE__PASSWORD: "gohub"
+      DATABASE__DBNAME: "gohub"
     restart: unless-stopped
 
   # ---- Prometheus ----

@@ -1,0 +1,14 @@
+app:
+  name: "GoHub"
+
+database:
+  use_external: false
+  external_dsn: ""   # если non-empty, используем именно его
+
+  # Локальная DB
+  host: "localhost"
+  port: 5432
+  user: "gohub"
+  password: "gohub"
+  dbname: "gohub"
+  sslmode: "disable"

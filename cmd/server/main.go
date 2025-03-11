@@ -1,18 +1,20 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strconv"
+	"time"
 
+	"gohub/internal/config"
 	"gohub/internal/db"
 	"gohub/internal/server"
 	ws "gohub/internal/websocket"
 
-  	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // corsMiddleware оборачивает http.Handler, устанавливая заголовки для поддержки CORS.
@@ -34,14 +36,38 @@ func corsMiddleware(next http.Handler) http.Handler {
 }
 
 func main() {
+	cfg, err := config.LoadConfig("./config")
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
+
 	// Подключаемся к БД
-	dsn := "postgres://gohub:gohub@localhost:5432/gohub?sslmode=disable"
-	if val, ok := os.LookupEnv("DATABASE_URL"); ok {
-		dsn = val
+	var dsn string
+	if cfg.Database.UseExternal && cfg.Database.ExternalDSN != "" {
+		// Используем внешнюю базу, если она указана в конфиге
+		dsn = cfg.Database.ExternalDSN
+		fmt.Println("Using external DB:", dsn)
+	} else {
+		// Собираем локальный DSN
+		dsn = fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
+			cfg.Database.User,
+			cfg.Database.Password,
+			cfg.Database.Host,
+			cfg.Database.Port,
+			cfg.Database.DBName,
+			cfg.Database.SSLMode,
+		)
+		fmt.Println("Using local DB DSN:", dsn)
 	}
 	storage, err := db.NewStorage(dsn)
 	if err != nil {
 		log.Fatalf("Failed to connect db: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err = storage.EnsureSchema(ctx)
+	if err != nil {
+		log.Fatalf("Failed to ensure schema: %v", err)
 	}
 
 	// Инициализируем WebSocket-хаб
@@ -99,13 +125,13 @@ func main() {
 	srv := server.NewMetricsServer(storage, hub)
 
 	go func() {
-        http.Handle("/metrics", promhttp.Handler())
-        log.Println("Prometheus metrics on :2112/metrics")
-        if err := http.ListenAndServe(":2112", nil); err != nil {
-            log.Fatalf("Prometheus metrics server error: %v", err)
-        }
-    }()
-	
+		http.Handle("/metrics", promhttp.Handler())
+		log.Println("Prometheus metrics on :2112/metrics")
+		if err := http.ListenAndServe(":2112", nil); err != nil {
+			log.Fatalf("Prometheus metrics server error: %v", err)
+		}
+	}()
+
 	// Запускаем gRPC
 	if err := srv.Start(); err != nil {
 		log.Fatalf("Failed to start gRPC server: %v", err)

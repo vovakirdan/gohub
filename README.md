@@ -40,6 +40,59 @@ To see Grafana, open the browser and go to `http://localhost:3001`.
 
 ---
 
+### **Configuration Guide**
+
+Our application reads settings from **`config.yaml`** and environment variables using the [spf13/viper](https://github.com/spf13/viper) library.
+
+1. **config.yaml** (located in `./config/config.yaml`) sets the default parameters:
+   ```yaml
+   app:
+     name: "GoHub"
+
+   database:
+     use_external: false
+     external_dsn: ""
+     host: "localhost"
+     port: 5432
+     user: "gohub"
+     password: "gohub"
+     dbname: "gohub"
+     sslmode: "disable"
+   ```
+
+2. **Environment variables** override the corresponding fields.  
+   - Example: `DATABASE__HOST=myhost` will replace `database.host` from the file.  
+   - If you need to use an external database, set:
+     ```
+     DATABASE__USE_EXTERNAL=true
+     DATABASE__EXTERNAL_DSN=postgres://user:pass@somehost:5432/proddb?sslmode=disable
+     ```
+     Then the application will not connect to the local Postgres.
+
+3. **Priority**: values from **environment variables** take precedence over those in `config.yaml`.  
+
+4. **Migrations**: Upon startup, the application checks/creates the `metrics` table (or you can use your own migration system).  
+   - If `use_external=true`, make sure you have permissions to create/modify tables in the external database.
+
+### **How to Use**
+
+- **Local mode** (running Postgres in Docker):
+  ```bash
+  docker-compose up
+  ```
+  By default, `use_external=false`, and the application uses the DSN `postgres://gohub:gohub@db:5432/gohub?sslmode=disable`.
+
+- **External database**:
+  1. Configure `.env` or system environment variables:
+     ```
+     DATABASE__USE_EXTERNAL=true
+     DATABASE__EXTERNAL_DSN=postgres://user:pass@my-external-db:5432/proddb?sslmode=disable
+     ```
+  2. Run `docker-compose up server web prometheus grafana` without `db` (or use profiles).  
+  3. The application will connect to the specified database and create the `metrics` table (if it does not exist).
+
+---
+
 # **🎯 Functionality**
 ### 🔹 gRPC API (Go)
 ✅ Agents connect to the server and send metrics via gRPC.  
