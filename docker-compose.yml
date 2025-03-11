@@ -1,5 +1,9 @@
 version: '3.8'
 
+networks:
+  dev_net:
+    external: true
+
 services:
   # ---- PostgreSQL ----
   db:
@@ -18,6 +22,8 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./deploy/postgres/initdb:/docker-entrypoint-initdb.d
     restart: unless-stopped
+    networks:
+      - dev_net
 
   # ---- Postgres Exporter ----
   db_exporter:
@@ -31,6 +37,8 @@ services:
     ports:
       - "9187:9187"
     restart: unless-stopped
+    networks:
+      - dev_net
 
   # ---- gRPC Go Server ----
   server:
@@ -52,6 +60,8 @@ services:
       DATABASE__PASSWORD: "gohub"
       DATABASE__DBNAME: "gohub"
     restart: unless-stopped
+    networks:
+      - dev_net
 
   # ---- Prometheus ----
   prometheus:
@@ -64,6 +74,8 @@ services:
     ports:
       - "9090:9090"
     restart: unless-stopped
+    networks:
+      - dev_net
 
   # ---- Grafana ----
   grafana:
@@ -78,6 +90,8 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
     restart: unless-stopped
+    networks:
+      - dev_net
 
   # ---- React ----
   web:
@@ -93,6 +107,8 @@ services:
     ports:
       - "3000:80"
     restart: unless-stopped
+    networks:
+      - dev_net
 
 volumes:
   postgres_data:
