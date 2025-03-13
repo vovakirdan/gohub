@@ -21,8 +21,23 @@ jobs:
     - name: Build agent
       run: go build -o agent.run cmd/agent/main.go
       
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
+    - name: Get Version
+      id: version
+      run: echo "VERSION=$(date +'%Y.%m.%d-%H%M%S')" >> $GITHUB_ENV
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
       with:
-        name: agent
-        path: agent.run
+        tag_name: v${{ env.VERSION }}
+        release_name: Release ${{ env.VERSION }}
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload binary to Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: agent.run
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
