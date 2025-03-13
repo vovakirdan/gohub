@@ -25,19 +25,13 @@ jobs:
       id: version
       run: echo "VERSION=$(date +'%Y.%m.%d-%H%M%S')" >> $GITHUB_ENV
 
-    - name: Create GitHub Release
+    - name: Create Release and Upload Asset
       uses: softprops/action-gh-release@v1
       with:
         tag_name: v${{ env.VERSION }}
         release_name: Release ${{ env.VERSION }}
+        files: agent.run
         draft: false
         prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Upload binary to Release
-      uses: softprops/action-gh-release@v1
-      with:
-        files: agent.run
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
