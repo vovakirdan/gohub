@@ -3,13 +3,43 @@
 
 **Goal**: To develop a distributed monitoring system that collects metrics from agents on servers and sends them to a central service for display.
 
-### Run
+# Run
+With local database:
 ```
-docker compose up --build
+docker compose --profile localdb up --build
 ```
-To see the frontend, open the browser and go to `http://localhost:3000`.
-To see Prometheus, open the browser and go to `http://localhost:9090`.
-To see Grafana, open the browser and go to `http://localhost:3001`.
+PostgreSQL will be on 5432 (local), gRPC-server on 50051
+
+With external database (list the services to run):
+```
+docker compose up server web prometheus grafana --build
+```
+PostgreSQL will be on 5432 (external), gRPC-server on 50051
+
+* To see the frontend, open the browser and go to `http://localhost:3000`.
+* To see Prometheus, open the browser and go to `http://localhost:9090`.
+* To see Grafana, open the browser and go to `http://localhost:3001`.
+
+# Run agents
+> [!NOTE]
+> You can run agents on any server, but they must be able to connect to the gRPC server.
+* [Compile](#compile)
+* [Use the latest release](#use-the-latest-release)
+
+## Compile
+Be sure you have Go 1.20+ installed.
+```bash
+SEND_INTERVAL=1000 AGENT_TAG=my_tag go build -o agent ./cmd/agent/main.go
+```
+
+## Use the latest release (only for Debian/Ubuntu)
+> [!NOTE]
+> The latest release is available at [https://github.com/vovakirdan/gohub/releases](https://github.com/vovakirdan/gohub/releases).
+```bash
+curl -L -o agent https://github.com/vovakirdan/gohub/releases/download/v2025.03.13-130803/agent.run
+chmod +x agent
+./agent
+```
 
 ### **🛠 Technology Stack**
 1. **Go (gRPC server)**
