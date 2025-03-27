@@ -132,6 +132,34 @@ func main() {
 		}
 	}()
 
+	// Запускаем периодическую очистку старых метрик
+	go func() {
+		cleanupTicker := time.NewTicker(3 * 24 * time.Hour) // каждые 3 дня
+		defer cleanupTicker.Stop()
+
+		for range cleanupTicker.C {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			count, err := storage.CleanOldMetrics(ctx, 3*24*time.Hour) // хранить данные за 3 дня
+			cancel()
+
+			if err != nil {
+				log.Printf("Failed to clean old metrics: %v", err)
+			} else {
+				log.Printf("Cleaned %d old metrics records", count)
+			}
+		}
+	}()
+
+	// Запускаем первую очистку сразу при старте
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Minute)
+	count, err := storage.CleanOldMetrics(ctx, 3*24*time.Hour)
+	cancel()
+	if err != nil {
+		log.Printf("Initial cleanup failed: %v", err)
+	} else {
+		log.Printf("Initial cleanup: removed %d old metrics records", count)
+	}
+
 	// Запускаем gRPC
 	if err := srv.Start(); err != nil {
 		log.Fatalf("Failed to start gRPC server: %v", err)

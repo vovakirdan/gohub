@@ -6,7 +6,7 @@
 # Run
 With local database:
 ```
-docker compose --profile localdb up --build
+docker-compose up --build
 ```
 PostgreSQL will be on 5432 (local), gRPC-server on 50051
 
@@ -40,6 +40,25 @@ curl -L -o agent https://github.com/vovakirdan/gohub/releases/download/v2025.03.
 chmod +x agent
 ./agent
 ```
+
+## Run agent in background mode
+```bash
+./agent &
+```
+## To stop agent
+```bash
+kill -9 $(cat PID_FILE)
+```
+Or
+```bash
+./agent --stop
+```
+
+## Run agent in foreground mode
+```bash
+./agent
+```
+
 
 ### **🛠 Technology Stack**
 1. **Go (gRPC server)**

@@ -7,7 +7,6 @@ networks:
 services:
   # ---- PostgreSQL ----
   db:
-    profiles: ["localdb"]
     build:
       context: ./deploy/postgres
       dockerfile: Dockerfile

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver
 )
@@ -152,4 +153,23 @@ func (s *Storage) LoadServersWithTags(ctx context.Context) ([]struct{ ServerID, 
 // joinConditions объединяет условия SQL
 func joinConditions(conds []string, sep string) string {
 	return strings.Join(conds, sep)
+}
+
+// CleanOldMetrics удаляет метрики старше указанного периода
+func (s *Storage) CleanOldMetrics(ctx context.Context, olderThan time.Duration) (int64, error) {
+	query := `
+	DELETE FROM metrics 
+	WHERE created_at < NOW() - $1::interval
+	`
+	result, err := s.db.ExecContext(ctx, query, olderThan.String())
+	if err != nil {
+		return 0, fmt.Errorf("failed to clean old metrics: %w", err)
+	}
+
+	count, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get affected rows: %w", err)
+	}
+
+	return count, nil
 }
