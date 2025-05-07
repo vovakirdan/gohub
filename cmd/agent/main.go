@@ -7,9 +7,12 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"time"
+	"strings"
+	"syscall"
 
 	"gohub/internal/api"
 
@@ -22,36 +25,26 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-const (
+var (
+	PID_FILE             = "/tmp/my_agent.pid"
 	DEFAULT_SEND_INTERVAL = 5 * time.Second
-	PID_FILE              = "/tmp/gohub-agent.pid"
+	SEND_INTERVAL         time.Duration
 )
 
-var SEND_INTERVAL time.Duration
-
-func init() {
-	intervalStr := os.Getenv("SEND_INTERVAL")
-	if intervalStr != "" {
-		if interval, err := strconv.Atoi(intervalStr); err == nil {
-			SEND_INTERVAL = time.Duration(interval) * time.Millisecond
-		} else {
-			SEND_INTERVAL = DEFAULT_SEND_INTERVAL
-		}
-	} else {
-		SEND_INTERVAL = DEFAULT_SEND_INTERVAL
-	}
-	log.Printf("Starting agent with interval: %s", SEND_INTERVAL)
-}
-
 func main() {
-	// Добавляем флаги командной строки
-	detach := flag.Bool("d", false, "Run in background (detached mode)")
-	detachLong := flag.Bool("detach", false, "Run in background (detached mode)")
-	stop := flag.Bool("stop", false, "Stop the running agent")
-	flag.Parse()
+	flags := parseFlags(os.Args[1:]) // Получим значения и порядок
+
+	// Отдельно обрабатываем help
+	if isHelpRequested() {
+		flag.Usage()
+		return
+	}
+
+	// Обрабатываем SEND_INTERVAL
+	SEND_INTERVAL = getSendInterval(flags)
 
 	// Обработка команды остановки
-	if *stop {
+	if flags["stop"].(bool) {
 		if err := stopAgent(); err != nil {
 			log.Fatalf("Failed to stop agent: %v", err)
 		}
@@ -59,69 +52,144 @@ func main() {
 		return
 	}
 
-	// Если указан флаг -d или --detach, запускаем процесс в фоне
-	if *detach || *detachLong {
+	// Detached mode
+	if flags["detach"].(bool) {
 		if os.Getenv("_DETACHED") != "1" {
-			// Получаем путь к текущему исполняемому файлу
-			exe, err := os.Executable()
-			if err != nil {
-				log.Fatalf("Failed to get executable path: %v", err)
-			}
-			exe, err = filepath.Abs(exe)
-			if err != nil {
-				log.Fatalf("Failed to get absolute path: %v", err)
-			}
-
-			// Создаём новый процесс
-			cmd := exec.Command(exe)
-			cmd.Env = append(os.Environ(), "_DETACHED=1")
-			err = cmd.Start()
-			if err != nil {
-				log.Fatalf("Failed to start detached process: %v", err)
-			}
-
-			// Сохраняем PID
-			if err := os.WriteFile(PID_FILE, []byte(strconv.Itoa(cmd.Process.Pid)), 0644); err != nil {
-				log.Printf("Warning: Failed to write PID file: %v", err)
-			}
-
-			fmt.Println("Agent started in background mode")
-			os.Exit(0)
-		} else {
-			// В дочернем процессе сохраняем свой PID
-			if err := os.WriteFile(PID_FILE, []byte(strconv.Itoa(os.Getpid())), 0644); err != nil {
-				log.Printf("Warning: Failed to write PID file: %v", err)
-			}
+			runDetached()
+			return
 		}
+		writePID()
 	}
 
-	// Считываем AGENT_TAG из окружения (или даём значение по умолчанию)
-	tag := os.Getenv("AGENT_TAG")
-	if tag == "" {
-		tag = "default-tag"
-	}
+	tag := getEnvOrDefault("AGENT_TAG", flags["tag"].(string))
 
 	// Подключаемся к gRPC-серверу
-	conn, err := grpc.NewClient(
-		"localhost:50051",
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
+	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("Failed to connect to gRPC server: %v", err)
 	}
 	defer conn.Close()
 
 	client := api.NewMetricsServiceClient(conn)
-
 	ticker := time.NewTicker(SEND_INTERVAL)
 	defer ticker.Stop()
 
-	log.Printf("Agent started with tag=%s, sending metrics to gRPC server...", tag)
+	log.Printf("Agent started with tag=%s, interval=%s", tag, SEND_INTERVAL)
+
+	// Graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	go listenForSignals(cancel)
 
 	for {
-		<-ticker.C
-		sendSystemMetrics(client, tag)
+		select {
+		case <-ctx.Done():
+			log.Println("Agent shutting down...")
+			return
+		case <-ticker.C:
+			sendSystemMetrics(client, tag)
+		}
 	}
+}
+
+func parseFlags(args []string) map[string]interface{} {
+	var (
+		detachShort, detachLong bool
+		stop                    bool
+		intervalShort, intervalLong int
+		tagShort, tagLong string
+	)
+
+	fs := flag.NewFlagSet("agent", flag.ExitOnError)
+	fs.BoolVar(&detachShort, "d", false, "Run in background (detached mode)")
+	fs.BoolVar(&detachLong, "detach", false, "Run in background (detached mode)")
+	fs.BoolVar(&stop, "stop", false, "Stop the running agent")
+	fs.IntVar(&intervalShort, "i", 5000, "Set send interval (ms)")
+	fs.IntVar(&intervalLong, "interval", 5000, "Set send interval (ms)")
+	fs.StringVar(&tagShort, "t", "default_tag", "Set agent tag")
+	fs.StringVar(&tagLong, "tag", "default_tag", "Set agent tag")
+	fs.Parse(args)
+
+	lastArgs := strings.Join(args, " ")
+	lastInterval := intervalShort
+	if strings.LastIndex(lastArgs, "--interval") > strings.LastIndex(lastArgs, "-i") {
+		lastInterval = intervalLong
+	}
+
+	lastTag := tagShort
+	if strings.LastIndex(lastArgs, "--tag") > strings.LastIndex(lastArgs, "-t") {
+		lastTag = tagLong
+	}
+
+	lastDetach := detachShort || detachLong
+	if strings.LastIndex(lastArgs, "--detach") > strings.LastIndex(lastArgs, "-d") {
+		lastDetach = detachLong
+	}
+
+	return map[string]interface{}{
+		"detach":  lastDetach,
+		"stop":    stop,
+		"interval": lastInterval,
+		"tag":     lastTag,
+	}
+}
+
+func getSendInterval(flags map[string]interface{}) time.Duration {
+	if env := os.Getenv("SEND_INTERVAL"); env != "" {
+		if ms, err := strconv.Atoi(env); err == nil {
+			return time.Duration(ms) * time.Millisecond
+		}
+	}
+	return time.Duration(flags["interval"].(int)) * time.Millisecond
+}
+
+func getEnvOrDefault(key, fallback string) string {
+	if val := os.Getenv(key); val != "" {
+		return val
+	}
+	return fallback
+}
+
+func runDetached() {
+	exe, err := os.Executable()
+	if err != nil {
+		log.Fatalf("Failed to get executable path: %v", err)
+	}
+	exe, _ = filepath.Abs(exe)
+
+	// Удаляем флаги -d и --detach из аргументов
+	var filteredArgs []string
+	for _, arg := range os.Args[1:] {
+		if arg != "-d" && arg != "--detach" {
+			filteredArgs = append(filteredArgs, arg)
+		}
+	}
+
+	cmd := exec.Command(exe, filteredArgs...)
+	cmd.Env = append(os.Environ(), "_DETACHED=1")
+
+	if err := cmd.Start(); err != nil {
+		log.Fatalf("Failed to start detached process: %v", err)
+	}
+
+	if err := os.WriteFile(PID_FILE, []byte(strconv.Itoa(cmd.Process.Pid)), 0644); err != nil {
+		log.Printf("Warning: Failed to write PID file: %v", err)
+	}
+
+	fmt.Println("Agent started in background mode")
+	os.Exit(0)
+}
+
+func writePID() {
+	if err := os.WriteFile(PID_FILE, []byte(strconv.Itoa(os.Getpid())), 0644); err != nil {
+		log.Printf("Warning: Failed to write PID file: %v", err)
+	}
+}
+
+func listenForSignals(cancel context.CancelFunc) {
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
+	<-ch
+	cancel()
 }
 
 func stopAgent() error {
@@ -142,7 +210,7 @@ func stopAgent() error {
 		return fmt.Errorf("failed to find process: %v", err)
 	}
 
-	if err := process.Signal(os.Interrupt); err != nil {
+	if err := process.Signal(syscall.SIGTERM); err != nil {
 		return fmt.Errorf("failed to stop process: %v", err)
 	}
 
@@ -152,6 +220,15 @@ func stopAgent() error {
 	}
 
 	return nil
+}
+
+func isHelpRequested() bool {
+	for _, arg := range os.Args[1:] {
+		if arg == "-h" || arg == "--help" {
+			return true
+		}
+	}
+	return false
 }
 
 // sendSystemMetrics собирает метрики и отправляет на сервер
