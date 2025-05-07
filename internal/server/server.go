@@ -3,13 +3,13 @@ package server
 import (
 	"context"
 	"fmt"
+	"gohub/internal/api"
+	"gohub/internal/db"
+	ws "gohub/internal/websocket"
 	"log"
 	"net"
 	"sync"
 	"time"
-	"gohub/internal/api"
-	"gohub/internal/db"
-	ws "gohub/internal/websocket"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
@@ -110,14 +110,14 @@ func (s *MetricsServer) SendMetrics(ctx context.Context, req *api.MetricsRequest
 
 	// Рассылаем по WebSocket
 	s.hub.BroadcastMetrics(ws.WSMetricUpdate{
-		Message:       "New metrics received",
-		ServerID:      req.ServerId,
-		Tag:           req.Tag,
-		CPUUsage:      req.CpuUsage,
-		MemoryUsage:   req.MemoryUsage,
-		DiskUsage:     req.DiskUsage,
-		NetworkUsage:  req.NetworkUsage,
-		Timestamp:     time.Now().Unix(),
+		Message:      "New metrics received",
+		ServerID:     req.ServerId,
+		Tag:          req.Tag,
+		CPUUsage:     req.CpuUsage,
+		MemoryUsage:  req.MemoryUsage,
+		DiskUsage:    req.DiskUsage,
+		NetworkUsage: req.NetworkUsage,
+		Timestamp:    time.Now().Unix(),
 	})
 
 	return &api.MetricsResponse{Status: "OK"}, nil

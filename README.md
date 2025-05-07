@@ -41,9 +41,14 @@ chmod +x agent
 ./agent
 ```
 
+## Run help to see avaliable commands for agent
+```bash
+./agent -h
+```
+
 ## Run agent in background mode
 ```bash
-./agent &
+./agent -d
 ```
 ## To stop agent
 ```bash

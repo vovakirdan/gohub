@@ -11,12 +11,12 @@ import (
 
 // Сообщение, которое шлём клиенту
 type WSMetricUpdate struct {
-	Message    string  `json:"message"`
-	ServerID   string  `json:"server_id"`
-	Tag        string  `json:"tag"`
-	CPUUsage   float64 `json:"cpu_usage"`
-	MemoryUsage float64 `json:"memory_usage"`
-	DiskUsage   float64 `json:"disk_usage"`
+	Message      string  `json:"message"`
+	ServerID     string  `json:"server_id"`
+	Tag          string  `json:"tag"`
+	CPUUsage     float64 `json:"cpu_usage"`
+	MemoryUsage  float64 `json:"memory_usage"`
+	DiskUsage    float64 `json:"disk_usage"`
 	NetworkUsage float64 `json:"network_usage"`
 	Timestamp    int64   `json:"timestamp"`
 }
