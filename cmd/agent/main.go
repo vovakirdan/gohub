@@ -5,14 +5,15 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strconv"
-	"time"
 	"strings"
 	"syscall"
+	"time"
 
 	"gohub/internal/api"
 
@@ -26,7 +27,8 @@ import (
 )
 
 var (
-	PID_FILE             = "/tmp/my_agent.pid"
+	PID_FILE              = "/tmp/my_agent.pid"
+	TAG_FILE              = "/tmp/my_agent.tag"
 	DEFAULT_SEND_INTERVAL = 5 * time.Second
 	SEND_INTERVAL         time.Duration
 )
@@ -63,6 +65,24 @@ func main() {
 
 	tag := getEnvOrDefault("AGENT_TAG", flags["tag"].(string))
 
+	if tag == "" || tag == "default_tag" {
+		// Сбросить старый сохранённый тег, если передан флаг
+		if flags["resetTag"].(bool) {
+			_ = os.Remove(TAG_FILE)
+			log.Println("Saved tag file removed; a new tag will be generated.")
+		}
+
+		// Попробовать загрузить старый тег
+		var err error
+		tag, err = loadTagFromFile()
+		if err != nil {
+			tag = generateRandomTag()
+			if err := saveTagToFile(tag); err != nil {
+				log.Printf("Warning: Failed to save tag to file: %v", err)
+			}
+		}
+	}
+
 	// Подключаемся к gRPC-серверу
 	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -91,12 +111,44 @@ func main() {
 	}
 }
 
+func generateRandomTag() string {
+	adjectives := []string{
+		"shiny", "silent", "brave", "loyal", "fuzzy",
+		"hidden", "ancient", "swift", "sleepy", "upgraded",
+	}
+	nouns := []string{
+		"octopus", "goggles", "tiger", "lantern", "avocado",
+		"penguin", "rocket", "panther", "squid", "falcon",
+	}
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	adj := adjectives[r.Intn(len(adjectives))]
+	noun := nouns[r.Intn(len(nouns))]
+	return fmt.Sprintf("%s-%s", adj, noun)
+}
+
+func loadTagFromFile() (string, error) {
+	data, err := os.ReadFile(TAG_FILE)
+	if err != nil {
+		return "", err
+	}
+	tag := strings.TrimSpace(string(data))
+	if tag == "" {
+		return "", fmt.Errorf("empty tag")
+	}
+	return tag, nil
+}
+
+func saveTagToFile(tag string) error {
+	return os.WriteFile(TAG_FILE, []byte(tag), 0644)
+}
+
 func parseFlags(args []string) map[string]interface{} {
 	var (
-		detachShort, detachLong bool
-		stop                    bool
+		detachShort, detachLong     bool
+		stop                        bool
 		intervalShort, intervalLong int
-		tagShort, tagLong string
+		tagShort, tagLong           string
+		resetTag                    bool
 	)
 
 	fs := flag.NewFlagSet("agent", flag.ExitOnError)
@@ -107,6 +159,7 @@ func parseFlags(args []string) map[string]interface{} {
 	fs.IntVar(&intervalLong, "interval", 5000, "Set send interval (ms)")
 	fs.StringVar(&tagShort, "t", "default_tag", "Set agent tag")
 	fs.StringVar(&tagLong, "tag", "default_tag", "Set agent tag")
+	fs.BoolVar(&resetTag, "reset-tag", false, "Reset saved agent tag")
 	fs.Parse(args)
 
 	lastArgs := strings.Join(args, " ")
@@ -126,10 +179,11 @@ func parseFlags(args []string) map[string]interface{} {
 	}
 
 	return map[string]interface{}{
-		"detach":  lastDetach,
-		"stop":    stop,
+		"detach":   lastDetach,
+		"stop":     stop,
 		"interval": lastInterval,
-		"tag":     lastTag,
+		"tag":      lastTag,
+		"resetTag": resetTag,
 	}
 }
 
